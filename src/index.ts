@@ -8,22 +8,25 @@ export function stripReadOnly<T>(readOnlyItem: T): NonReadOnly<T> {
   return readOnlyItem as NonReadOnly<T>;
 }
 
-export declare type RequestValidation<TParams, TQuery, TBody> = {
+export declare type RequestValidation<TParams, TQuery, TBody, THeaders> = {
   params?: ZodSchema<TParams>;
   query?: ZodSchema<TQuery>;
   body?: ZodSchema<TBody>;
+  headers?: ZodSchema<THeaders>;
 };
-export declare type RequestProcessing<TParams, TQuery, TBody> = {
+export declare type RequestProcessing<TParams, TQuery, TBody, THeaders> = {
   params?: ZodEffects<any, TParams>;
   query?: ZodEffects<any, TQuery>;
   body?: ZodEffects<any, TBody>;
+  headers?: ZodSchema<THeaders>;
 };
 
 export declare type TypedRequest<
   TParams extends ZodType<any, ZodTypeDef, any>,
   TQuery extends ZodType<any, ZodTypeDef, any>,
   TBody extends ZodType<any, ZodTypeDef, any>,
-> = Request<z.infer<TParams>, any, z.infer<TBody>, z.infer<TQuery>>;
+  THeaders extends ZodType<any, ZodTypeDef, any>,
+> = Request<z.infer<TParams>, any, z.infer<TBody>, z.infer<TQuery>, z.infer<THeaders>>;
 
 export declare type TypedRequestBody<TBody extends ZodType<any, ZodTypeDef, any>> = Request<
   ParamsDictionary,
@@ -45,7 +48,7 @@ export declare type TypedRequestQuery<TQuery extends ZodType<any, ZodTypeDef, an
   z.infer<TQuery>
 >;
 
-type ErrorListItem = { type: 'Query' | 'Params' | 'Body'; errors: ZodError<any> };
+type ErrorListItem = { type: 'Query' | 'Params' | 'Body' | 'Headers'; errors: ZodError<any> };
 
 export const sendErrors: (errors: Array<ErrorListItem>, res: Response) => void = (errors, res) => {
   return res.status(400).send(errors.map((error) => ({ type: error.type, errors: error.errors })));
@@ -110,14 +113,14 @@ export function processRequestQuery<TQuery>(
   };
 }
 
-export function processRequest<TParams = any, TQuery = any, TBody = any>(
-  schemas: RequestProcessing<TParams, TQuery, TBody>,
+export function processRequest<TParams = any, TQuery = any, TBody = any, THeaders = any>(
+  schemas: RequestProcessing<TParams, TQuery, TBody, THeaders>,
 ): RequestHandler<TParams, any, TBody, TQuery>;
-export function processRequest<TParams = any, TQuery = any, TBody = any>(
-  schemas: RequestValidation<TParams, TQuery, TBody>,
+export function processRequest<TParams = any, TQuery = any, TBody = any, THeaders = any>(
+  schemas: RequestValidation<TParams, TQuery, TBody, THeaders>,
 ): RequestHandler<TParams, any, TBody, TQuery>;
-export function processRequest<TParams = any, TQuery = any, TBody = any>(
-  schemas: RequestValidation<TParams, TQuery, TBody> | RequestProcessing<TParams, TQuery, TBody>,
+export function processRequest<TParams = any, TQuery = any, TBody = any, THeaders = any>(
+  schemas: RequestValidation<TParams, TQuery, TBody, THeaders> | RequestProcessing<TParams, TQuery, TBody, THeaders>,
 ): RequestHandler<TParams, any, TBody, TQuery> {
   return (req, res, next) => {
     const errors: Array<ErrorListItem> = [];
@@ -143,6 +146,14 @@ export function processRequest<TParams = any, TQuery = any, TBody = any>(
         req.body = parsed.data;
       } else {
         errors.push({ type: 'Body', errors: parsed.error });
+      }
+    }
+    if (schemas.headers) {
+      const parsed = schemas.headers.safeParse(req.headers);
+      if (parsed.success) {
+        req.headers = parsed.data;
+      } else {
+        errors.push({ type: 'Headers', errors: parsed.error });
       }
     }
     if (errors.length > 0) {
@@ -184,10 +195,10 @@ export const validateRequestQuery: <TQuery>(
   }
 };
 
-export const validateRequest: <TParams = any, TQuery = any, TBody = any>(
-  schemas: RequestValidation<TParams, TQuery, TBody>,
+export const validateRequest: <TParams = any, TQuery = any, TBody = any, THeaders = any>(
+  schemas: RequestValidation<TParams, TQuery, TBody, THeaders>,
 ) => RequestHandler<TParams, any, TBody, TQuery> =
-  ({ params, query, body }) =>
+  ({ params, query, body, headers }) =>
   (req, res, next) => {
     const errors: Array<ErrorListItem> = [];
     if (params) {
@@ -206,6 +217,12 @@ export const validateRequest: <TParams = any, TQuery = any, TBody = any>(
       const parsed = body.safeParse(req.body);
       if (!parsed.success) {
         errors.push({ type: 'Body', errors: parsed.error });
+      }
+    }
+    if (headers) {
+      const parsed = headers.safeParse(req.headers);
+      if (!parsed.success) {
+        errors.push({ type: 'Headers', errors: parsed.error });
       }
     }
     if (errors.length > 0) {

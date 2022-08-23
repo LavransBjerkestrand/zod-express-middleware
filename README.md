@@ -57,12 +57,16 @@ app.get("/:urlParameter/", validateRequest({
     query: z.object({
       queryKey: z.string().length(64),
     }),
+    headers: z.object({
+      headersKey: z.string().length(16)
+    })
   }), (req, res) => {
-    // req.params, req.body and req.query are now strictly-typed and confirm to the zod schema's above.
+    // req.params, req.body, req.query and req.headers are now strictly-typed and confirm to the zod schema's above.
     // req.params has type { urlParameter: string };
     // req.body has type { bodyKey: number };
     // req.query has type { queryKey: string };
-    return res.json({message: "Validation for params, body and query passed"});  
+    // req.headers has type { headersKey: string };
+    return res.json({message: "Validation for params, body, query and headers passed"});  
   }
 );
 
@@ -115,7 +119,8 @@ This functions accepts an object containing three optional properties:
 schemas: {
   params? : ZodSchema,
   query? : ZodSchema,
-  body? : ZodSchema
+  body? : ZodSchema,
+  headers? : ZodSchema
 }
 ```
  
@@ -154,7 +159,8 @@ This functions accepts an object containing three optional properties:
 schemas: {
   params? : ZodSchema,
   query? : ZodSchema,
-  body? : ZodSchema
+  body? : ZodSchema,
+  headers? : ZodSchema
 }
 ```
  
